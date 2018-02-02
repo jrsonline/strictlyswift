@@ -1,0 +1,53 @@
+{% macro accessModifierOf type %}{% if type.accessLevel == '' %}public{% else %}{{ type.accessLevel }}{% endif %}{% endmacro %}
+
+
+{% for type in types.implementing.Constructible %}
+
+// {{type.name}} IMPLEMENTATION OF HIGHER KINDED TYPES
+
+{% if !type.isGeneric %} CODEGEN_FAILURE_for_{{ type.name }}___Constructible_must_be_generic_type {% endif %}
+
+/// {{ type.name }}Tag is the container type for values of {{ type.name }}
+{% call accessModifierOf type %} struct {{ type.name }}Tag : HKTTag {
+    {% call accessModifierOf type %} typealias ActualType = {{ type.name }}
+    fileprivate let _actual: Any
+    init<T>(_ actual:{{ type.name }}<T>) { self._actual = actual as Any }
+}
+extension {{ type.name }} : _TypeConstructor {
+    {% call accessModifierOf type %} typealias Tag = {{ type.name }}Tag
+
+    {% call accessModifierOf type %} var lift: Construct<Tag, TypeParameter> {
+        return Construct<Tag, TypeParameter>(tag: Tag(self))
+    }
+
+{% if type.kind == "class" %}// If you get an error: Method 'lower' in non-final class '{{type.name}}<T>' must return 'Self'
+// to conform to protocol '_TypeConstructor', then make {{type.name}} final {% endif %}
+    {% call accessModifierOf type %} static func lower(_ con: Construct<Tag, TypeParameter>) -> {{ type.name }}<TypeParameter> {
+        {% if type.name != "Optional" %}return con.tag._actual as! {{ type.name }}  {% endif %}
+        {% if type.name == "Optional" %}return con.tag._actual as? Wrapped  {% endif %}
+    }
+}
+
+extension Construct where ConstructorTag == {{ type.name }}Tag
+{
+    {% call accessModifierOf type %} var lower: {{ type.name }}<TypeParameter> { get {
+        return {{ type.name }}.lower(self)
+    }}
+
+{% call accessModifierOf type %} var to{{ type.name }}: {{ type.name }}<TypeParameter> { get { return lower }}
+}
+
+{% call accessModifierOf type %} func >>>¬<A>(left: Construct<{{ type.name }}Tag, A>, right: @escaping (Construct<{{ type.name }}Tag, A>) -> {{ type.name }}<A>) -> {{ type.name }}<A>
+{
+    return right(left)
+}
+
+{% call accessModifierOf type %} postfix func¬<A>(left: Construct<{{ type.name }}Tag, A>) -> {{ type.name }}<A> {
+return left.lower
+}
+
+{% call accessModifierOf type %} func to{{ type.name }}<A>(_ con:Construct<{{ type.name }}Tag, A>) -> {{ type.name }}<A> {
+    return {{ type.name }}<A>.lower(con)
+}
+
+{% endfor %}
