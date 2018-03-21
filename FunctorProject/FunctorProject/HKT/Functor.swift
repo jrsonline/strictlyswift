@@ -8,6 +8,8 @@
 
 import Foundation
 
+//a "tag" protocol, used by Sourcery
+public protocol Functor  { }
 
 public protocol FunctorTag : HKTTag {
     typealias F = Self

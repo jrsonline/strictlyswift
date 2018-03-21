@@ -28,6 +28,8 @@ extension {{ type.name }} : _TypeConstructor {
     }
 }
 
+
+
 extension Construct where ConstructorTag == {{ type.name }}Tag
 {
     {% call accessModifierOf type %} var lower: {{ type.name }}<TypeParameter> { get {
@@ -50,4 +52,97 @@ return left.lower
     return {{ type.name }}<A>.lower(con)
 }
 
+{% if type.implements.Functor %}
+
+extension {{ type.name }}Tag : FunctorTag {
+    {% call accessModifierOf type %} static func fmap<A, B>(_ transform: @escaping (A) -> B) -> (Construct<{{ type.name }}Tag, A>) -> Construct<{{ type.name }}Tag, B> {
+        return { applyA in
+            let a = {{ type.name }}<A>.lower(applyA)
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member fmap"  that is
+            // because {{ type.name }} conforms to the Functor protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func fmap<B>(_ transform: @escaping (A) -> B) -> {{ type.name }}<B>
+            return a.fmap(transform)^
+        }
+    }
+}
+
+
+{% endif %}
+
+
+{% if type.implements.Applicative %}
+
+extension {{type.name}}Tag : ApplicativeTag {
+    {% call accessModifierOf type %} static func pure<A>(_ a: A) -> Construct<{{type.name}}Tag, A> {
+
+        // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member pure"  that is
+        // because {{ type.name }} conforms to the Applicative protocol but does not also implement this method:
+        // {% call accessModifierOf type %} static func pure<V>(_ v: V) -> {{type.name}}<V>
+        return {{type.name}}<A>.pure(a)^
+    }
+
+    {% call accessModifierOf type %} static func ap<A, B>(_ fAB: Construct<{{type.name}}Tag, (A) -> B>) -> (Construct<{{type.name}}Tag, A>) -> Construct<{{type.name}}Tag, B> {
+        return { fA in
+            let fab = {{type.name}}<(A)->B>.lower(fAB)
+            let wa = {{type.name}}<A>.lower(fA)
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member ap"  that is
+            // because {{ type.name }} conforms to the Applicative protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func ap<B>(_ fAB: {{ type.name }}<(TypeParameter) -> B>) -> {{ type.name }}<B>
+            return wa.ap(fab)^
+        }
+    }
+}
+
+extension Appl2 {
+    subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B> ) -> {{ type.name }}<C> {
+        return appl( f: f2, to: first^, second^ )¬
+    }
+}
+extension Appl3 {
+    subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B>, _ third: {{ type.name }}<C> ) -> {{ type.name }}<D> {
+        return appl( f: f3, to: first^, second^, third^ )¬
+    }
+}
+extension Appl4 {
+subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B>, _ third: {{ type.name }}<C>, _ fourth: {{ type.name }}<D>  ) -> {{ type.name }}<E> {
+return appl( f: f4, to: first^, second^, third^, fourth^ )¬
+}
+}
+
+extension ApplReduce {
+subscript(_ params: {{ type.name }}<Elt>...) -> {{ type.name }}<Elt> {
+return self.to(params.map(^))¬
+}
+}
+
+{% if not type.implements.Functor %}
+
+// Auto-generating Functor instance from Applicative
+extension {{ type.name }} : Functor   {
+    public func fmap<B>(_ transform: @escaping (TypeParameter) -> B) -> {{ type.name }}<B> {
+        return self.ap({{ type.name }}.pure(transform))
+    }
+}
+
+extension {{ type.name }}Tag : FunctorTag {
+    {% call accessModifierOf type %} static func fmap<TypeParameter, B>(_ transform: @escaping (TypeParameter) -> B) -> (Construct<{{ type.name }}Tag, TypeParameter>) -> Construct<{{ type.name }}Tag, B> {
+        return { applyA in
+            let a = {{ type.name }}<TypeParameter>.lower(applyA)
+            return a.fmap(transform)^
+        }
+    }
+}
+
+{% endif %}
+
+{% endif %}
+
+
 {% endfor %}
+
+
+
+
+
