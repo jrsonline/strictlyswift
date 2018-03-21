@@ -16,21 +16,34 @@ extension Optional : Constructible {
     public typealias TypeParameter = Wrapped
 }
 
-extension ArrayTag : FunctorTag {
-    public static func fmap<A, B>(_ transform: @escaping (A) -> B) -> (Construct<ArrayTag, A>) -> Construct<ArrayTag, B> {
-        return { applyA in
-            return [A].lower(applyA).map( transform )^
+
+extension Array : Applicative {
+    public static func pure<A>(_ a: A) -> [A] {
+        return [a]
+    }
+    
+    public func ap<B>(_ fAB: Array<(Element) -> B>) -> Array<B> {
+        return fAB.flatMap {
+            f in self.map { a in f(a) } }
+    }
+}
+
+
+extension Optional : Applicative {
+    public static func pure<A>(_ a: A) -> A? {
+        return (a as A?)
+    }
+    
+    public func ap<B>(_ fAB: Optional<(Wrapped) -> B>) -> Optional<B> {
+        switch (self, fAB) {
+        case (.some(let a), .some(let f)): return f(a)
+        default: return (nil as B?)
         }
     }
 }
 
-extension OptionalTag : FunctorTag {
-    public static func fmap<A, B>(_ transform: @escaping (A) -> B) -> (Construct<OptionalTag, A>) -> Construct<OptionalTag, B> {
-        return { applyA in
-            return A?.lower(applyA).flatMap(transform)^
-        }
-    }
-}
 
+// No need to have conformances to Functor or FunctorTag (or ApplicativeTag)
+// Sourcery creates them for us
 
 
