@@ -1,0 +1,323 @@
+{% macro accessModifierOf type %}{% if type.accessLevel == '' %}public{% else %}{{ type.accessLevel }}{% endif %}{% endmacro %}
+
+
+{% for type in types.implementing.Constructible %}
+
+//MARK: - HKT for {{type.name}}
+
+{% if !type.isGeneric %} CODEGEN_FAILURE_for_{{ type.name }}___Constructible_must_be_generic_type {% endif %}
+
+/// {{ type.name }}Tag is the container type for values of {{ type.name }}
+{% call accessModifierOf type %} struct {{ type.name }}Tag : HKTTag {
+    {% call accessModifierOf type %} typealias ActualType = {{ type.name }}
+    fileprivate let _actual: Any
+    init<T>(_ actual:{{ type.name }}<T>) { self._actual = actual as Any }
+}
+extension {{ type.name }} : _TypeConstructor {
+    {% call accessModifierOf type %} typealias Tag = {{ type.name }}Tag
+
+    {% call accessModifierOf type %} var lift: Construct<Tag, TypeParameter> {
+        return Construct<Tag, TypeParameter>(tag: Tag(self))
+    }
+
+{% if type.kind == "class" %}// If you get an error: Method 'lower' in non-final class '{{type.name}}<T>' must return 'Self'
+// to conform to protocol '_TypeConstructor', then make {{type.name}} final {% endif %}
+    {% call accessModifierOf type %} static func lower(_ con: Construct<Tag, TypeParameter>) -> {{ type.name }}<TypeParameter> {
+        {% if type.name != "Optional" %}return con.tag._actual as! {{ type.name }}  {% endif %}
+        {% if type.name == "Optional" %}return con.tag._actual as? Wrapped  {% endif %}
+    }
+}
+
+
+
+extension Construct where ConstructorTag == {{ type.name }}Tag
+{
+    {% call accessModifierOf type %} var lower: {{ type.name }}<TypeParameter> { get {
+        return {{ type.name }}.lower(self)
+    }}
+
+{% call accessModifierOf type %} var to{{ type.name }}: {{ type.name }}<TypeParameter> { get { return lower }}
+}
+
+{% call accessModifierOf type %} func >>>¬<A>(left: Construct<{{ type.name }}Tag, A>, right: @escaping (Construct<{{ type.name }}Tag, A>) -> {{ type.name }}<A>) -> {{ type.name }}<A>
+{
+    return right(left)
+}
+
+{% call accessModifierOf type %} postfix func¬<A>(left: Construct<{{ type.name }}Tag, A>) -> {{ type.name }}<A> {
+return left.lower
+}
+
+{% call accessModifierOf type %} func to{{ type.name }}<A>(_ con:Construct<{{ type.name }}Tag, A>) -> {{ type.name }}<A> {
+    return {{ type.name }}<A>.lower(con)
+}
+
+{% if type.implements.Functor %}
+
+extension {{ type.name }}Tag : FunctorTag {
+    {% call accessModifierOf type %} static func fmap<A, B>(_ transform: @escaping (A) -> B) -> (Construct<{{ type.name }}Tag, A>) -> Construct<{{ type.name }}Tag, B> {
+        return { applyA in
+            let a = {{ type.name }}<A>.lower(applyA)
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member fmap"  that is
+            // because {{ type.name }} conforms to the Functor protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func fmap<B>(_ transform: @escaping (A) -> B) -> {{ type.name }}<B>
+            return a.fmap(transform)^
+        }
+    }
+}
+
+func >>>•<P,Q>(left: {{ type.name }}<P>, right: @escaping (P) -> Q) -> {{ type.name }}<Q>
+{
+    return left.fmap(right)
+}
+
+
+{% endif %}
+
+
+{% if type.implements.Applicative %}
+
+extension {{type.name}}Tag : ApplicativeTag {
+    {% call accessModifierOf type %} static func pure<A>(_ a: A) -> Construct<{{type.name}}Tag, A> {
+
+        // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member pure"  that is
+        // because {{ type.name }} conforms to the Applicative protocol but does not also implement this method:
+        // {% call accessModifierOf type %} static func pure<V>(_ v: V) -> {{type.name}}<V>
+        return {{type.name}}<A>.pure(a)^
+    }
+
+    {% call accessModifierOf type %} static func ap<A, B>(_ fAB: Construct<{{type.name}}Tag, (A) -> B>) -> (Construct<{{type.name}}Tag, A>) -> Construct<{{type.name}}Tag, B> {
+        return { fA in
+            let fab = {{type.name}}<(A)->B>.lower(fAB)
+            let wa = {{type.name}}<A>.lower(fA)
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member ap"  that is
+            // because {{ type.name }} conforms to the Applicative protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func ap<B>(_ fAB: {{ type.name }}<(TypeParameter) -> B>) -> {{ type.name }}<B>
+            return wa.ap(fab)^
+        }
+    }
+}
+
+func <*><P,Q>(f: {{type.name}}<(P) -> Q>, p: {{type.name}}<P>) -> Construct<{{type.name}}Tag,Q>
+{
+    return {{type.name}}Tag.ap(f^)(p^)
+}
+func <*><P,Q>(f: Construct<{{type.name}}Tag,(P) -> Q>, p: {{type.name}}<P>) -> Construct<{{type.name}}Tag,Q>
+{
+return {{type.name}}Tag.ap(f)(p^)
+}
+
+func <¢><P,Q>(f: @escaping (P) -> Q, p: {{type.name}}<P>) -> Construct<{{type.name}}Tag,Q>
+{
+    return {{type.name}}Tag.ap({{type.name}}Tag.pure(f))(p^)
+}
+
+extension Appl2 {
+    subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B> ) -> {{ type.name }}<C> {
+        return appl( f: f2, to: first^, second^ )¬
+    }
+}
+extension Appl3 {
+    subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B>, _ third: {{ type.name }}<C> ) -> {{ type.name }}<D> {
+        return appl( f: f3, to: first^, second^, third^ )¬
+    }
+}
+extension Appl4 {
+subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B>, _ third: {{ type.name }}<C>, _ fourth: {{ type.name }}<D>  ) -> {{ type.name }}<E> {
+return appl( f: f4, to: first^, second^, third^, fourth^ )¬
+}
+}
+extension Appl5 {
+subscript(_ first: {{ type.name }}<A>, _ second: {{ type.name }}<B>, _ third: {{ type.name }}<C>, _ fourth: {{ type.name }}<D>, _ fifth: {{type.name}}<E>  ) -> {{ type.name }}<F> {
+return appl( f: f5, to: first^, second^, third^, fourth^, fifth^ )¬
+}
+}
+extension ApplReduce {
+subscript(_ params: {{ type.name }}<Elt>...) -> {{ type.name }}<Elt> {
+    return self.to(params.map(^))¬
+}
+}
+
+{% if not type.implements.Functor %}
+
+// Auto-generating Functor instance from Applicative
+extension {{ type.name }} : Functor   {
+    public func fmap<B>(_ transform: @escaping (TypeParameter) -> B) -> {{ type.name }}<B> {
+        return self.ap({{ type.name }}.pure(transform))
+    }
+}
+
+extension {{ type.name }}Tag : FunctorTag {
+    {% call accessModifierOf type %} static func fmap<TypeParameter, B>(_ transform: @escaping (TypeParameter) -> B) -> (Construct<{{ type.name }}Tag, TypeParameter>) -> Construct<{{ type.name }}Tag, B> {
+        return { applyA in
+            let a = {{ type.name }}<TypeParameter>.lower(applyA)
+            return a.fmap(transform)^
+        }
+    }
+}
+
+{% endif %}
+
+{% endif %}
+
+{% if type.implements.Monad %}
+
+extension {{type.name}}Tag : MonadTag {
+
+    {% if type.implements.Applicative %}
+    // As {{type.name}} also implements Applicative, no need to implement pure
+
+    {% else %}
+
+    {% call accessModifierOf type %} static func pure<V>(_ v: V) -> Construct<{{type.name}}Tag, V> {
+
+    // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member pure"  that is
+    // because {{ type.name }} conforms to the Monad protocol but does not also implement this method:
+    // {% call accessModifierOf type %} static func pure<V>(_ v: V) -> {{type.name}}<V>
+
+        return {{type.name}}<V>.pure(v)^
+    }
+    {% endif %}
+
+    {% call accessModifierOf type %} static func bind<A,B>(_ m:Construct<{{type.name}}Tag, A> ) -> ( @escaping (A) -> Construct<{{type.name}}Tag, B>) -> Construct<{{type.name}}Tag, B> {
+            return { fA in
+                let ml : {{type.name}}<A> = {{type.name}}<A>.lower(m)
+                let wa : (A) -> {{type.name}}<B> = { a in {{type.name}}<B>.lower(fA(a)) }
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member bind"  that is
+            // because {{ type.name }} conforms to the Monad protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func bind<B>(_ m: (TypeParameter) -> {{ type.name }}<B>) -> {{ type.name }}<B>
+            return ml.bind(wa)^
+        }
+    }
+}
+
+extension {{type.name}} {
+    {% call accessModifierOf type %} static func >>>=<B>( left: {{type.name}}<TypeParameter>, right: @escaping (TypeParameter) -> {{type.name}}<B>) -> {{type.name}}<B> {
+        return left.bind(right)
+    }
+}
+
+func >=> <A,B,C> (l: @escaping (A) -> {{type.name}}<B>, r: @escaping (B) -> {{type.name}}<C> ) -> (A) -> {{type.name}}<C> {
+return { a in l(a) >>>= r }
+}
+func >=> <A,B> (l: A, r: @escaping (A) -> {{type.name}}<B> ) -> {{type.name}}<B> {
+    return {{type.name}}<A>.pure(l) >>>= r
+}
+
+
+
+{% endif %}
+
+{% endfor %}
+
+
+{% for type in types.implementing.DualConstructible %}
+
+//MARK: - HKT for {{type.name}}
+
+{% if !type.isGeneric %} CODEGEN_FAILURE_for_{{ type.name }}___DualConstructible_must_be_generic_type_2_parameters {% endif %}
+
+/// {{ type.name }}Tag<FixedType> is the container type for values of {{ type.name }}<FixedType>
+{% call accessModifierOf type %} struct {{ type.name }}Tag<FixedType{% if type|annotated:"FixedTypeConstraint" %}: {{ type.annotations.FixedTypeConstraint}} {% endif %}> : HKTTag {
+    {% call accessModifierOf type %} typealias ActualType<A> = {{ type.name }}<FixedType,A>
+    fileprivate let _actual: Any
+    init<FixedType ,T>(_ actual:{{ type.name }}<FixedType,T>) { self._actual = actual as Any }
+}
+extension {{ type.name }} : _TypeConstructor {
+    {% call accessModifierOf type %} typealias Tag = {{ type.name }}Tag<FixedType>
+
+    {% call accessModifierOf type %} var lift: Construct<Tag, TypeParameter> {
+        return Construct<Tag, TypeParameter>(tag: Tag(self))
+    }
+
+    {% if type.kind == "class" %}// If you get an error: Method 'lower' in non-final class '{{type.name}}<FixedType,T>' must return 'Self'
+    // to conform to protocol '_DualTypeConstructor', then make {{type.name}} final {% endif %}
+    {% call accessModifierOf type %} static func lower(_ con: Construct<Tag, TypeParameter>) -> {{ type.name }}<FixedType, TypeParameter> {
+        {% if type.name != "Optional" %}return con.tag._actual as! {{ type.name }}<FixedType, TypeParameter>  {% endif %}
+        {% if type.name == "Optional" %}return con.tag._actual as? Wrapped  {% endif %}
+    }
+}
+
+
+
+{% call accessModifierOf type %} func >>>¬<A,FixedType>(left: Construct<{{ type.name }}Tag<FixedType>, A>, right: @escaping (Construct<{{ type.name }}Tag<FixedType>, A>) -> {{ type.name }}<FixedType,A>) -> {{ type.name }}<FixedType,A>
+{
+return right(left)
+}
+
+{% call accessModifierOf type %} postfix func¬<A,FixedType>(left: Construct<{{ type.name }}Tag<FixedType>, A>) -> {{ type.name }}<FixedType,A> {
+    return {{ type.name }}.lower(left)
+}
+
+{% call accessModifierOf type %} func to{{ type.name }}<A,FixedType>(_ con:Construct<{{ type.name }}Tag<FixedType>, A>) -> {{ type.name }}<FixedType,A> {
+return {{ type.name }}<FixedType,A>.lower(con)
+}
+
+
+{% if type.implements.Functor %}
+
+extension {{ type.name }}Tag : FunctorTag {
+    {% call accessModifierOf type %} static func fmap<A, B>(_ transform: @escaping (A) -> B) -> (Construct<{{ type.name }}Tag<FixedType>, A>) -> Construct<{{ type.name }}Tag<FixedType>, B> {
+        return { applyA in
+            let a = {{ type.name }}<FixedType,A>.lower(applyA)
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<FixedType,A> has no member fmap"  that is
+            // because {{ type.name }} conforms to the Functor protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func fmap<B>(_ transform: @escaping (TypeParameter) -> B) -> {{ type.name }}<FixedType,B>
+            return a.fmap(transform)^
+        }
+    }
+}
+{% endif %}
+
+{% if type.implements.Monad %}
+
+extension {{type.name}}Tag : MonadTag {
+
+{% if type.implements.Applicative %}
+    // As {{type.name}} also implements Applicative, no need to implement pure
+
+{% else %}
+
+    {% call accessModifierOf type %} static func pure<V>(_ v: V) -> Construct<{{type.name}}Tag<FixedType>, V> {
+
+    // If you get an error on the next line like "Value of type "{{ type.name }}<A> has no member pure"  that is
+    // because {{ type.name }} conforms to the Monad protocol but does not also implement this method:
+    // {% call accessModifierOf type %} static func pure<V>(_ v: V) -> {{type.name}}<FixedType,V>
+
+        return {{type.name}}<FixedType,V>.pure(v)^
+    }
+{% endif %}
+
+    {% call accessModifierOf type %} static func bind<A,B>(_ m:Construct<{{type.name}}Tag<FixedType>, A> ) -> ( @escaping (A) -> Construct<{{type.name}}Tag<FixedType>, B>) -> Construct<{{type.name}}Tag<FixedType>, B> {
+        return { fA in
+            let ml : {{type.name}}<FixedType,A> = {{type.name}}<FixedType,A>.lower(m)
+            let wa : (A) -> {{type.name}}<FixedType,B> = { a in {{type.name}}<FixedType,B>.lower(fA(a)) }
+
+            // If you get an error on the next line like "Value of type "{{ type.name }}<FixedType,A> has no member bind"  that is
+            // because {{ type.name }} conforms to the Monad protocol but does not also implement this method:
+            // {% call accessModifierOf type %} func bind<B>(_ m: (TypeParameter) -> {{ type.name }}<FixedType,B>) -> {{ type.name }}<FixedType,B>
+            return ml.bind(wa)^
+        }
+    }
+}
+
+func >=> <FixedType,A,B,C> (l: @escaping (A) -> {{type.name}}<FixedType,B>, r: @escaping (B) -> {{type.name}}<FixedType,C> ) -> (A) -> {{type.name}}<FixedType,C> {
+return { a in l(a) >>>= r }
+}
+func >=> <FixedType,A,B> (l: A, r: @escaping (A) -> {{type.name}}<FixedType,B> ) -> {{type.name}}<FixedType,B> {
+return {{type.name}}<FixedType,A>.pure(l) >>>= r
+}
+
+extension {{type.name}} {
+{% call accessModifierOf type %} static func >>>=<B>( left: {{type.name}}<FixedType,TypeParameter>, right: @escaping (TypeParameter) -> {{type.name}}<FixedType,B>) -> {{type.name}}<FixedType,B> {
+return left.bind(right)
+}
+}
+
+{% endif %}
+
+{% endfor %}
