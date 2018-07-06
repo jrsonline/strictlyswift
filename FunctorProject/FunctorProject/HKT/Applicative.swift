@@ -2,8 +2,7 @@
 //  Applicative.swift
 //  HKT
 //
-//  Created by JonLily on 1/23/18.
-//  Copyright © 2018 jsoft-online. All rights reserved.
+//  Created by @strictlyswift on 1/23/18.
 //
 
 import Foundation
@@ -21,6 +20,7 @@ protocol ApplicativeTag : HKTTag {
     static func pure<A>(_ a: A) -> Construct<F,A>
     static func ap<A,B>(_ fAB: Construct<F, (A)->B> ) -> (Construct<F,A>) -> Construct<F,B>
 }
+
 
 protocol Applicative { }
 
@@ -74,6 +74,19 @@ struct Appl4<A,B,C,D,E> {
         where F : ApplicativeTag
     {
         return appl( f: f4, to: first, second, third, fourth )
+    }
+}
+
+struct Appl5<A,B,C,D,E,F> {
+    let f5: (A,B,C,D,E) -> F
+    
+    init(_ f5: @escaping (A,B,C,D,E) -> F) {
+        self.f5 = f5
+    }
+    func to<T>(_ first: Construct<T,A>, _ second: Construct<T,B>, _ third: Construct<T,C> , _ fourth: Construct<T,D> , _ fifth: Construct<T,E>) -> Construct<T,F>
+        where T : ApplicativeTag
+    {
+        return appl( f: f5, to: first, second, third, fourth, fifth )
     }
 }
 
@@ -152,6 +165,20 @@ func appl<A,P,Q,R,S,T>( f: @escaping (P, Q, R, S) -> T, to p:Construct<A,P>, _ q
     where A : ApplicativeTag
 {
     return appl( f: curry(f), to: p, q, r, s)
+}
+
+/// Curried version of appl, using a type-constructor-wrapped 5-parameter function
+func appl<A,P,Q,R,S,T,U>( f: @escaping (P) -> (Q) -> (R) -> (S) -> (T) -> U, to p:Construct<A,P>, _ q:Construct<A,Q>, _ r:Construct<A,R>, _ s:Construct<A,S>, _ t:Construct<A,T>) -> Construct<A,U>
+    where A : ApplicativeTag
+{
+    return f <¢> p <*> q <*> r <*> s <*> t
+}
+
+/// Uncurried 5-argument version of appl, passing in a function without a type constructor
+func appl<A,P,Q,R,S,T,U>( f: @escaping (P, Q, R, S, T) -> U, to p:Construct<A,P>, _ q:Construct<A,Q>, _ r:Construct<A,R>, _ s:Construct<A,S>, _ t:Construct<A,T> ) -> Construct<A,U>
+    where A : ApplicativeTag
+{
+    return appl( f: curry(f), to: p, q, r, s, t)
 }
 
 /// applreduce takes it a bit differently, given a 'reducing function' f (Elt->Elt)->Elt, it

@@ -2,8 +2,7 @@
 //  WebData.swift
 //  HKT
 //
-//  Created by JonLily on 3/9/18.
-//  Copyright © 2018 jsoft-online. All rights reserved.
+//  Created by @strictlyswift on 3/9/18.
 //
 
 import Foundation
@@ -29,6 +28,20 @@ enum WebData<A> : Constructible, CustomStringConvertible {
         switch self {
         case .safe(_): return self
         case .taint(let a): return .safe(a)  // in reality, do some scrubbing!
+        }
+    }
+    
+    func taint() -> WebData<A> {
+        switch self {
+        case .safe(let a): return .taint(a)
+        case .taint(_): return self
+        }
+    }
+    
+    init(_ a:A, withValidator: (A) -> Bool) {
+        switch withValidator(a) {
+        case true: self = .safe(a)
+        case false: self = .taint(a)
         }
     }
 }
@@ -61,4 +74,13 @@ extension WebData : Applicative {
         }
     }
     
+}
+
+extension WebData : Monad {
+    func bind<B>(_ m: (TypeParameter) -> WebData<B>) -> WebData<B> {
+        switch self {
+        case .taint(let a): return m(a).taint()
+        case .safe(let a): return m(a)
+        }
+    }
 }
