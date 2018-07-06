@@ -2,8 +2,7 @@
 //  Tree.swift
 //  HKT
 //
-//  Created by JonLily on 1/23/18.
-//  Copyright © 2018 jsoft-online. All rights reserved.
+//  Created by @strictlyswift on 1/23/18.
 //
 
 import Foundation

@@ -2,8 +2,7 @@
 //  LinkedList.swift
 //  HKT
 //
-//  Created by JonLily on 1/23/18.
-//  Copyright © 2018 jsoft-online. All rights reserved.
+//  Created by @strictlyswift on 1/23/18.
 //
 
 import Foundation
@@ -125,12 +124,8 @@ extension LinkedList : Constructible {
     public typealias TypeParameter = T
 }
 
-extension LinkedListTag: FunctorTag {
-    public static func fmap<A, B>(_ transform: @escaping (A) -> B) -> (Construct<LinkedListTag, A>) -> Construct<LinkedListTag, B> {
-        return { applyA in
-            return LinkedList<A>.lower(applyA).lmap(transform)^
-        }
+extension LinkedList : Functor {
+    public func fmap<B>(_ transform: @escaping (Element) -> B) -> LinkedList<B> {
+        return self.lmap(transform)
     }
 }
-
-
