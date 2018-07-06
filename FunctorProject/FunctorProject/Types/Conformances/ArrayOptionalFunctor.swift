@@ -2,8 +2,7 @@
 //  Conformance
 //  HKT
 //
-//  Created by JonLily on 1/23/18.
-//  Copyright © 2018 jsoft-online. All rights reserved.
+//  Created by @strictlyswift on 1/23/18.
 //
 
 import Foundation
@@ -46,4 +45,19 @@ extension Optional : Applicative {
 // No need to have conformances to Functor or FunctorTag (or ApplicativeTag)
 // Sourcery creates them for us
 
+extension Optional : Monad {
+    // if type also implements Applicative, no need to implement pure
+    
+    public func bind<B>(_ m: @escaping (Wrapped) -> B?) -> B? {
+        return self.flatMap { m($0) }
+    }
+}
 
+
+
+extension Array: Monad {
+    // if type also implements Applicative, no need to implement pure
+    public func bind<B>(_ m: @escaping  (Element) -> [B]) -> [B] {
+        return self.flatMap(m)
+    }
+}
