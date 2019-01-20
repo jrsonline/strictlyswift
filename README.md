@@ -12,3 +12,5 @@ https://medium.com/@JLHLonline/superpowered-sequences-a009ccc1ae43
 https://medium.com/@JLHLonline/a-world-beyond-swift-maps-f73397d4504
 
 https://medium.com/@JLHLonline/monad-magic-d355a761e294
+
+https://medium.com/@JLHLonline/a-monad-menagerie-15e5b96d9ca7
